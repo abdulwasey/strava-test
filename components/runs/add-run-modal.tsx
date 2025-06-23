@@ -9,22 +9,39 @@ import { GlassCard } from '@/components/ui/glass-card'
 import { Button } from '@/components/ui/button'
 import { format } from 'date-fns'
 
-const runSchema = z.object({
-  date: z.string(),
-  distance: z.string().transform(val => parseFloat(val)),
-  hours: z.string().transform(val => parseInt(val)),
-  minutes: z.string().transform(val => parseInt(val)),
-  seconds: z.string().transform(val => parseInt(val)),
-  avgHeartRate: z.string().transform(val => parseInt(val)),
-  maxHeartRate: z.string().transform(val => parseInt(val)),
-  calories: z.string().transform(val => parseInt(val)),
-  elevation: z.string().transform(val => parseInt(val)),
-  route: z.string().min(1, 'Route name is required'),
+// Form input schema - all fields are strings from form inputs
+const formInputSchema = z.object({
+  date: z.string().min(1, 'Date is required'),
+  distance: z.string()
+    .min(1, 'Distance is required')
+    .regex(/^\d*\.?\d+$/, 'Must be a valid number'),
+  hours: z.string().regex(/^\d*$/, 'Must be a number'),
+  minutes: z.string().regex(/^\d*$/, 'Must be a number'),
+  seconds: z.string().regex(/^\d*$/, 'Must be a number'),
+  avgHeartRate: z.string()
+    .min(1, 'Average heart rate is required')
+    .regex(/^\d+$/, 'Must be a whole number'),
+  maxHeartRate: z.string()
+    .min(1, 'Max heart rate is required')
+    .regex(/^\d+$/, 'Must be a whole number'),
+  calories: z.string()
+    .min(1, 'Calories are required')
+    .regex(/^\d+$/, 'Must be a whole number'),
+  elevation: z.string()
+    .min(1, 'Elevation is required')
+    .regex(/^-?\d+$/, 'Must be a whole number'),
+  route: z.string().min(1, 'Route name is required').max(50, 'Route name too long'),
   weather: z.string(),
-  temperature: z.string().transform(val => parseInt(val)),
-  notes: z.string().optional(),
+  temperature: z.string()
+    .min(1, 'Temperature is required')
+    .regex(/^-?\d+$/, 'Must be a whole number'),
+  notes: z.string().max(500, 'Notes too long').optional(),
 })
 
+// Type for form inputs (all strings)
+type FormInputData = z.infer<typeof formInputSchema>
+
+// Type for processed data (with numbers)
 type RunFormData = {
   date: string
   distance: number
@@ -54,19 +71,37 @@ export function AddRunModal({ isOpen, onClose }: AddRunModalProps) {
     handleSubmit,
     formState: { errors },
     reset,
-  } = useForm<RunFormData>({
-    resolver: zodResolver(runSchema),
+  } = useForm<FormInputData>({
+    resolver: zodResolver(formInputSchema),
     defaultValues: {
       date: format(new Date(), 'yyyy-MM-dd'),
       weather: 'Sunny',
+      hours: '0',
+      minutes: '0',
+      seconds: '0',
     },
   })
 
-  const onSubmit = async (data: RunFormData) => {
+  const onSubmit = async (data: FormInputData) => {
     setIsSubmitting(true)
+    
+    // Transform string inputs to numbers
+    const processedData: RunFormData = {
+      ...data,
+      distance: parseFloat(data.distance),
+      hours: parseInt(data.hours) || 0,
+      minutes: parseInt(data.minutes) || 0,
+      seconds: parseInt(data.seconds) || 0,
+      avgHeartRate: parseInt(data.avgHeartRate),
+      maxHeartRate: parseInt(data.maxHeartRate),
+      calories: parseInt(data.calories),
+      elevation: parseInt(data.elevation),
+      temperature: parseInt(data.temperature),
+    }
+    
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500))
-    console.log('Run data:', data)
+    console.log('Run data:', processedData)
     setIsSubmitting(false)
     reset()
     onClose()
@@ -81,7 +116,9 @@ export function AddRunModal({ isOpen, onClose }: AddRunModalProps) {
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Add New Run</h2>
           <button
             onClick={onClose}
+            type="button"
             className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            aria-label="Close modal"
           >
             <X className="h-5 w-5" />
           </button>
@@ -130,6 +167,7 @@ export function AddRunModal({ isOpen, onClose }: AddRunModalProps) {
                 step="0.1"
                 {...register('distance')}
                 placeholder="5.0"
+                required
                 className="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all"
               />
               {errors.distance && (
@@ -179,8 +217,17 @@ export function AddRunModal({ isOpen, onClose }: AddRunModalProps) {
                 type="number"
                 {...register('avgHeartRate')}
                 placeholder="145"
+                min="40"
+                max="220"
+                required
                 className="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all"
               />
+              {errors.avgHeartRate && (
+                <p className="text-red-500 text-xs mt-1 flex items-center">
+                  <span className="inline-block w-1 h-1 bg-red-500 rounded-full mr-1"></span>
+                  {errors.avgHeartRate.message}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
@@ -190,8 +237,17 @@ export function AddRunModal({ isOpen, onClose }: AddRunModalProps) {
                 type="number"
                 {...register('maxHeartRate')}
                 placeholder="175"
+                min="40"
+                max="220"
+                required
                 className="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all"
               />
+              {errors.maxHeartRate && (
+                <p className="text-red-500 text-xs mt-1 flex items-center">
+                  <span className="inline-block w-1 h-1 bg-red-500 rounded-full mr-1"></span>
+                  {errors.maxHeartRate.message}
+                </p>
+              )}
             </div>
           </div>
 
@@ -205,8 +261,16 @@ export function AddRunModal({ isOpen, onClose }: AddRunModalProps) {
                 type="number"
                 {...register('calories')}
                 placeholder="420"
+                min="0"
+                required
                 className="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all"
               />
+              {errors.calories && (
+                <p className="text-red-500 text-xs mt-1 flex items-center">
+                  <span className="inline-block w-1 h-1 bg-red-500 rounded-full mr-1"></span>
+                  {errors.calories.message}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
@@ -216,8 +280,15 @@ export function AddRunModal({ isOpen, onClose }: AddRunModalProps) {
                 type="number"
                 {...register('elevation')}
                 placeholder="45"
+                required
                 className="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all"
               />
+              {errors.elevation && (
+                <p className="text-red-500 text-xs mt-1 flex items-center">
+                  <span className="inline-block w-1 h-1 bg-red-500 rounded-full mr-1"></span>
+                  {errors.elevation.message}
+                </p>
+              )}
             </div>
           </div>
 
@@ -248,8 +319,17 @@ export function AddRunModal({ isOpen, onClose }: AddRunModalProps) {
                 type="number"
                 {...register('temperature')}
                 placeholder="20"
+                min="-50"
+                max="50"
+                required
                 className="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all"
               />
+              {errors.temperature && (
+                <p className="text-red-500 text-xs mt-1 flex items-center">
+                  <span className="inline-block w-1 h-1 bg-red-500 rounded-full mr-1"></span>
+                  {errors.temperature.message}
+                </p>
+              )}
             </div>
           </div>
 
@@ -272,6 +352,7 @@ export function AddRunModal({ isOpen, onClose }: AddRunModalProps) {
               type="submit"
               disabled={isSubmitting}
               loading={isSubmitting}
+              aria-label="Save run data"
               className="flex-1"
             >
               Save Run
